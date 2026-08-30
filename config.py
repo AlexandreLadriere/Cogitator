@@ -21,7 +21,7 @@ RAG_NUM_RESULTS = 2                 # Nombre d'entrées du lexique à injecter
 # ==============================================================================
 TTS_SPEED = 1.1                     # Vitesse de diction (1.0 = normal, >1.0 = plus rapide)
 AUDIO_SAMPLE_RATE_DEFAULT = 22050   # Fréquence d'échantillonnage de secours (Hz)
-ACTIVE_MODEL_FOLDER = "en_GB-medium"
+ACTIVE_MODEL_FOLDER = "en_GB-alan-medium"
 SELECTED_MODEL_DIR = os.path.join(MODELS_DIR, ACTIVE_MODEL_FOLDER)
 
 # ==============================================================================

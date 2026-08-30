@@ -24,90 +24,111 @@ from rag_engine import LexiconRAG
 # 1. INITIALISATION DES MOTEURS DU COGITATEUR
 # ==============================================================================
 
-# A. Base de données vectorielle (RAG)
-print("[INIT] Initializing Sanctified RAG Engine...")
-rag = LexiconRAG()
+def init_rag():
+    """Initialise la base de données vectorielle RAG."""
+    print("[INIT] Initializing Sanctified RAG Engine...")
+    try:
+        return LexiconRAG()
+    except Exception as e:
+        print(f"[WARNING] Could not initialize RAG Engine: {e}")
+        return None
 
-# B. Détection d'Activité Vocale (Silero VAD)
-print("[INIT] Loading Silero VAD Model...")
-try:
-    vad_model, vad_utils = torch.hub.load(
-        repo_or_dir='snakers4/silero-vad',
-        model='silero_vad',
-        force_reload=False,
-        onnx=False
-    )
-    (get_speech_timestamps, save_audio, read_audio, VADIterator, collect_chunks) = vad_utils
-    print("[INIT] Silero VAD loaded successfully.")
-except Exception as e:
-    print(f"[WARNING] Could not load Silero VAD: {e}")
-    vad_model = None
+def init_vad():
+    """Charge le modèle de détection d'activité vocale Silero VAD."""
+    print("[INIT] Loading Silero VAD Model...")
+    try:
+        vad_model, vad_utils = torch.hub.load(
+            repo_or_dir='snakers4/silero-vad',
+            model='silero_vad',
+            force_reload=False,
+            onnx=False
+        )
+        print("[INIT] Silero VAD loaded successfully.")
+        return vad_model, vad_utils
+    except Exception as e:
+        print(f"[WARNING] Could not load Silero VAD: {e}")
+        return None, None
 
-# C. Reconnaissance Vocale (Faster-Whisper STT)
-print("[INIT] Loading Faster-Whisper STT Model...")
-try:
-    from faster_whisper import WhisperModel
-    stt_model = WhisperModel(cfg.WHISPER_MODEL_SIZE, device="cpu", compute_type="int8")
-    print(f"[INIT] Faster-Whisper '{cfg.WHISPER_MODEL_SIZE}' loaded successfully.")
-except Exception as e:
-    print(f"[WARNING] Could not load Faster-Whisper: {e}")
-    stt_model = None
+def init_stt():
+    """Charge le modèle Faster-Whisper pour la reconnaissance vocale."""
+    print("[INIT] Loading Faster-Whisper STT Model...")
+    try:
+        from faster_whisper import WhisperModel
+        stt_model = WhisperModel(cfg.WHISPER_MODEL_SIZE, device="cpu", compute_type="int8")
+        print(f"[INIT] Faster-Whisper '{cfg.WHISPER_MODEL_SIZE}' loaded successfully.")
+        return stt_model
+    except Exception as e:
+        print(f"[WARNING] Could not load Faster-Whisper: {e}")
+        return None
 
-# D. Synthèse Vocale (Sherpa-ONNX TTS)
-print("[INIT] Loading Sherpa-ONNX Voice Model...")
-try:
-    import sherpa_onnx
-    
-    if not os.path.exists(cfg.SELECTED_MODEL_DIR):
-        raise FileNotFoundError(f"Model directory '{cfg.SELECTED_MODEL_DIR}' does not exist.")
-
-    model_files = [f for f in os.listdir(cfg.SELECTED_MODEL_DIR) if f.endswith(".onnx")]
-    tokens_files = [f for f in os.listdir(cfg.SELECTED_MODEL_DIR) if f == "tokens.txt" or f.endswith(".txt")]
-    lexicon_files = [f for f in os.listdir(cfg.SELECTED_MODEL_DIR) if f == "lexicon.txt"]
-    
-    data_dir_path = os.path.join(cfg.SELECTED_MODEL_DIR, "espeak-ng-data")
-    if not os.path.exists(data_dir_path):
-        data_dir_path = ""
-
-    if not model_files or not tokens_files:
-        raise FileNotFoundError(f"Missing .onnx or tokens.txt in '{cfg.SELECTED_MODEL_DIR}'")
+def init_tts():
+    """Charge le modèle Sherpa-ONNX pour la synthèse vocale."""
+    print("[INIT] Loading Sherpa-ONNX Voice Model...")
+    try:
+        import sherpa_onnx
         
-    model_path = os.path.join(cfg.SELECTED_MODEL_DIR, model_files[0])
-    tokens_path = os.path.join(cfg.SELECTED_MODEL_DIR, tokens_files[0])
-    lexicon_path = os.path.join(cfg.SELECTED_MODEL_DIR, lexicon_files[0]) if lexicon_files else ""
+        if not os.path.exists(cfg.SELECTED_MODEL_DIR):
+            raise FileNotFoundError(f"Model directory '{cfg.SELECTED_MODEL_DIR}' does not exist.")
 
-    print(f"[INIT] Model: {model_files[0]}")
-    print(f"[INIT] Lexicon: {lexicon_files[0] if lexicon_files else 'None'}")
-    print(f"[INIT] Data Dir: {data_dir_path if data_dir_path else 'None'}")
+        model_files = [f for f in os.listdir(cfg.SELECTED_MODEL_DIR) if f.endswith(".onnx")]
+        tokens_files = [f for f in os.listdir(cfg.SELECTED_MODEL_DIR) if f == "tokens.txt" or f.endswith(".txt")]
+        lexicon_files = [f for f in os.listdir(cfg.SELECTED_MODEL_DIR) if f == "lexicon.txt"]
+        
+        data_dir_path = os.path.join(cfg.SELECTED_MODEL_DIR, "espeak-ng-data")
+        if not os.path.exists(data_dir_path):
+            data_dir_path = ""
 
-    vits_config = sherpa_onnx.OfflineTtsVitsModelConfig(
-        model=model_path,
-        tokens=tokens_path,
-        lexicon=lexicon_path,
-        data_dir=data_dir_path
-    )
+        if not model_files or not tokens_files:
+            raise FileNotFoundError(f"Missing .onnx or tokens.txt in '{cfg.SELECTED_MODEL_DIR}'")
+            
+        model_path = os.path.join(cfg.SELECTED_MODEL_DIR, model_files[0])
+        tokens_path = os.path.join(cfg.SELECTED_MODEL_DIR, tokens_files[0])
+        lexicon_path = os.path.join(cfg.SELECTED_MODEL_DIR, lexicon_files[0]) if lexicon_files else ""
 
-    tts_config = sherpa_onnx.OfflineTtsConfig(
-        model=sherpa_onnx.OfflineTtsModelConfig(vits=vits_config)
-    )
-    
-    tts = sherpa_onnx.OfflineTts(tts_config)
-    print("[INIT] Sherpa-ONNX TTS loaded successfully.")
-except Exception as e:
-    print(f"[WARNING] Could not load Sherpa-ONNX TTS: {e}")
-    tts = None
+        print(f"[INIT] Model: {model_files[0]}")
+        print(f"[INIT] Lexicon: {lexicon_files[0] if lexicon_files else 'None'}")
+        print(f"[INIT] Data Dir: {data_dir_path if data_dir_path else 'None'}")
+
+        vits_config = sherpa_onnx.OfflineTtsVitsModelConfig(
+            model=model_path,
+            tokens=tokens_path,
+            lexicon=lexicon_path,
+            data_dir=data_dir_path
+        )
+
+        tts_config = sherpa_onnx.OfflineTtsConfig(
+            model=sherpa_onnx.OfflineTtsModelConfig(vits=vits_config)
+        )
+        
+        tts = sherpa_onnx.OfflineTts(tts_config)
+        print("[INIT] Sherpa-ONNX TTS loaded successfully.")
+        return tts
+    except Exception as e:
+        print(f"[WARNING] Could not load Sherpa-ONNX TTS: {e}")
+        return None
+
+def init_dsp_effects():
+    """Configure la chaîne d'effets audio Pedalboard."""
+    return Pedalboard([
+        PitchShift(semitones=cfg.DSP_PITCH_SHIFT_SEMITONES),
+        Bitcrush(bit_depth=cfg.DSP_BIT_DEPTH),
+        GSMFullRateCompressor(),
+        Distortion(drive_db=cfg.DSP_DISTORTION_DRIVE_DB),
+        HighpassFilter(cutoff_frequency_hz=cfg.DSP_HIGHPASS_CUTOFF_HZ),
+        LowpassFilter(cutoff_frequency_hz=cfg.DSP_LOWPASS_CUTOFF_HZ)
+    ])
+
 
 # ==============================================================================
-# 2. CONFIGURATION DU TRAITEMENT AUDIO (PEDALBOARD DSP)
+# 2. CHARGEMENT GLOBAL DES INSTANCES
 # ==============================================================================
-servitor_effects = Pedalboard([
-    PitchShift(semitones=cfg.DSP_PITCH_SHIFT_SEMITONES),
-    Bitcrush(bit_depth=cfg.DSP_BIT_DEPTH),
-    GSMFullRateCompressor(),
-    Distortion(drive_db=cfg.DSP_DISTORTION_DRIVE_DB),
-    HighpassFilter(cutoff_frequency_hz=cfg.DSP_HIGHPASS_CUTOFF_HZ),
-    LowpassFilter(cutoff_frequency_hz=cfg.DSP_LOWPASS_CUTOFF_HZ)
-])
+rag = init_rag()
+vad_model, vad_utils = init_vad()
+get_speech_timestamps = vad_utils[0] if vad_utils else None
+stt_model = init_stt()
+tts = init_tts()
+servitor_effects = init_dsp_effects()
+
 
 # ==============================================================================
 # 3. FONCTIONS DU PIPELINE AUDIO & COGNITIF
@@ -116,7 +137,6 @@ servitor_effects = Pedalboard([
 def record_audio_with_vad(sample_rate=cfg.STT_SAMPLE_RATE):
     """Enregistre l'audio du microphone en continu et s'arrête dès qu'un silence est détecté."""
     if not vad_model:
-        # Fallback : enregistrement fixe de 5 secondes si VAD indisponible
         print(f"\n[MIC] Listening (Fallback mode, {cfg.MIC_RECORD_DURATION}s)...")
         audio_data = sd.rec(int(cfg.MIC_RECORD_DURATION * sample_rate), samplerate=sample_rate, channels=1, dtype='int16')
         sd.wait()
@@ -164,14 +184,12 @@ def record_audio_with_vad(sample_rate=cfg.STT_SAMPLE_RATE):
         while True:
             sd.sleep(50)
             
-            # Arrêt sur silence prolongé
             if speech_started and silence_start_time:
                 elapsed_silence = time.time() - silence_start_time
                 if elapsed_silence >= cfg.VAD_SILENCE_DURATION:
                     print(f"[MIC] Silence detected ({elapsed_silence:.1f}s). Stopping recording.")
                     break
 
-            # Sécurité sur durée max
             if time.time() - start_time > cfg.VAD_MAX_RECORD_TIME:
                 print("[MIC] Max recording duration reached.")
                 break
@@ -190,11 +208,15 @@ def record_audio_with_vad(sample_rate=cfg.STT_SAMPLE_RATE):
     return temp_file.name
 
 def transcribe_audio(audio_path):
-    """Transcrit l'audio WAV en texte via Faster-Whisper."""
+    """Transcrit l'audio WAV en texte via Faster-Whisper avec guidage phonétique."""
     if not stt_model:
         return ""
     
-    segments, _ = stt_model.transcribe(audio_path, beam_size=5)
+    segments, _ = stt_model.transcribe(
+        audio_path, 
+        beam_size=5,
+        initial_prompt=getattr(cfg, "STT_INITIAL_PROMPT", "")
+    )
     transcription = " ".join([segment.text for segment in segments]).strip()
     
     if os.path.exists(audio_path):
@@ -214,7 +236,7 @@ def speak_servitor(text):
         raw_samples = np.array(audio.samples, dtype=np.float32)
         sr = getattr(audio, 'sample_rate', cfg.AUDIO_SAMPLE_RATE_DEFAULT)
 
-        # Ring Modulator (monotonie synthétique)
+        # Ring Modulator
         t = np.linspace(0, len(raw_samples) / sr, len(raw_samples), endpoint=False)
         carrier = np.sin(2 * np.pi * cfg.RING_MOD_FREQ_HZ * t)
         robotic_samples = raw_samples * (cfg.RING_MOD_DRY_MIX + cfg.RING_MOD_WET_MIX * carrier)
@@ -270,15 +292,16 @@ def main():
     
     speak_servitor("Cogitator online. State designated query.")
 
+    # Liste des variations phonétiques tolérées pour l'arrêt
+    shutdown_phrases = ["exit", "terminate", "quit", "stop", "shut down"]
+
     while True:
         try:
-            # 1. Enregistrement vocal géré par Silero VAD
             audio_file = record_audio_with_vad()
             
             if not audio_file:
                 continue
 
-            # 2. Transcription STT
             user_input = transcribe_audio(audio_file)
 
             if not user_input:
@@ -287,16 +310,14 @@ def main():
 
             print(f"\n[USER (STT)] > {user_input}")
 
-            # Interception d'arrêt
-            if any(w in user_input.lower() for w in ["exit", "terminate", "quit", "stop"]):
+            # Interception d'arrêt tolérante aux erreurs phonétiques
+            if any(phrase in user_input.lower() for phrase in shutdown_phrases):
                 speak_servitor("Terminating cognitive session.")
                 break
 
-            # 3. Traitement LLM + RAG
             response_text = query_llm(user_input)
             print(f"\n[SERVITOR] > {response_text}\n")
 
-            # 4. Restitution Vocale
             speak_servitor(response_text)
 
         except KeyboardInterrupt:
