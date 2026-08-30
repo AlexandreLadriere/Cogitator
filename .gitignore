@@ -1,0 +1,44 @@
+# --- Environnement virtuel Python ---
+venv/
+ENV/
+env/
+.venv/
+
+# --- Modèles vocaux et données lourdes (Sherpa-ONNX / Piper / VAD) ---
+models/*
+*.onnx
+*.tar.bz2
+espeak-ng-data/
+
+# --- Base de données vectorielle (ChromaDB / RAG) ---
+chroma_db/
+*.sqlite3
+
+# --- Fichiers test ---
+test_tts.py
+
+# --- Fichiers système et éditeurs ---
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# IDEs & Éditeurs (VS Code, PyCharm)
+.vscode/
+.idea/
+*.swp
+*.swo
+*.py[cod]
+__pycache__/
+
+# --- Fichiers temporaires et logs ---
+*.log
+temp/
+tmp/
+*.wav
